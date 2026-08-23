@@ -3,9 +3,9 @@
   "version": "0.9.7",
   "description": "Scaffold a WASM Game Framework game site: wasm-game.json, native adapter, exact @wasm-game-framework/browser pin, Docker image, and package-contract tests. Does not emit index.html, launcher CSS, a service worker, or a web manifest.",
   "license": "MIT",
-  "homepage": "https://theodorecharles.github.io/wasm-game-framework/",
+  "homepage": "https://builtbyted.github.io/wasm-game-framework/",
   "bugs": {
-    "url": "https://github.com/theodorecharles/wasm-game-framework/issues"
+    "url": "https://github.com/BuiltByTed/wasm-game-framework/issues"
   },
   "keywords": [
     "wasm",
@@ -17,7 +17,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/theodorecharles/wasm-game-framework.git",
+    "url": "git+https://github.com/BuiltByTed/wasm-game-framework.git",
     "directory": "packages/create-wasm-game"
   },
   "bin": {
