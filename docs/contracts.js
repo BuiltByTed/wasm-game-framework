@@ -6,8 +6,8 @@ const pkg = require('../package.json');
 
 const VERSION = pkg.version;
 const PACKAGE_NAME = pkg.name;
-const REPOSITORY_URL = 'https://github.com/theodorecharles/wasm-game-framework';
-const PAGES_ORIGIN = 'https://theodorecharles.github.io/wasm-game-framework';
+const REPOSITORY_URL = 'https://github.com/BuiltByTed/wasm-game-framework';
+const PAGES_ORIGIN = 'https://builtbyted.github.io/wasm-game-framework';
 const LIVE_EXAMPLE = {
   title: 'Wolfenstein: Enemy Territory',
   url: 'https://wolfet.tedcharles.net/'
