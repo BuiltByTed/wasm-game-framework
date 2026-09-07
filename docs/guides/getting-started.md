@@ -41,7 +41,7 @@ manifest. If you add those files later, you have left the contract.
 ## Work from the framework checkout
 
 ```bash
-git clone https://github.com/theodorecharles/wasm-game-framework.git
+git clone https://github.com/BuiltByTed/wasm-game-framework.git
 cd wasm-game-framework
 npm test
 ```

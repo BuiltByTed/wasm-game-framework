@@ -8,7 +8,7 @@ application.
 
 Current release: **0.9.6**
 
-Documentation: [theodorecharles.github.io/wasm-game-framework](https://theodorecharles.github.io/wasm-game-framework/)
+Documentation: [builtbyted.github.io/wasm-game-framework](https://builtbyted.github.io/wasm-game-framework/)
 
 Version 0.9.6 restores large browser media libraries with bounded parallel
 HTTP and IndexedDB work instead of serializing thousands of files. Version
@@ -45,13 +45,13 @@ Defaults are explicit `displayMode: "4:3"`, `menuCursor: "browser"`,
 neutral ready-state copy.
 
 Useful flags: `--display-mode`, `--menu-cursor`, `--controller`, `--media`,
-`--server`. See [Getting started](https://theodorecharles.github.io/wasm-game-framework/getting-started.html).
+`--server`. See [Getting started](https://builtbyted.github.io/wasm-game-framework/getting-started.html).
 
 The framework repository itself is self-contained and does not include a game
 engine, compiled game WASM, or game data. To work on the framework:
 
 ```bash
-git clone https://github.com/theodorecharles/wasm-game-framework.git
+git clone https://github.com/BuiltByTed/wasm-game-framework.git
 cd wasm-game-framework
 npm test
 ./scripts/build-base-image.sh wasm-game-framework:0.9.6
@@ -693,16 +693,16 @@ link rather than deleted.
 
 | Engine family | Games | Status | Current repositories |
 | --- | --- | --- | --- |
-| id Tech 1 | Doom, Doom II, TNT, Plutonia, Heretic, Hexen, Chex Quest | **Still in development** | [idtech1-wasm](https://github.com/theodorecharles/idtech1-wasm) |
-| id Tech 2 | Quake, Quake II | **Still in development** | [idtech2-wasm](https://github.com/theodorecharles/idtech2-wasm) |
-| id Tech 3 | Quake III Arena, Return to Castle Wolfenstein | **Still in development** | [idtech3-wasm](https://github.com/theodorecharles/idtech3-wasm) |
-| id Tech 3 | Wolfenstein: Enemy Territory | **Live** | [idtech3-wasm](https://github.com/theodorecharles/idtech3-wasm), [wolfet-wasm](https://github.com/theodorecharles/wolfet-wasm), [live deployment](https://wolfet.tedcharles.net/) |
-| id Tech 4 | Doom 3, Resurrection of Evil, Quake 4, Prey (2006) | **Still in development** | [idtech4-wasm](https://github.com/theodorecharles/idtech4-wasm) |
-| Build | Blood, Duke Nukem 3D | **Still in development** | [build-wasm](https://github.com/theodorecharles/build-wasm) |
-| GoldSource | Half-Life, Opposing Force, Blue Shift, Counter-Strike | **Still in development** | [goldsource-wasm](https://github.com/theodorecharles/goldsource-wasm) |
-| Source | Half-Life 2 | **Still in development** | [source-wasm](https://github.com/theodorecharles/source-wasm) |
-| IW 2.0 reconstruction | Call of Duty 2 Multiplayer | **Still in development** | [cod2-wasm](https://github.com/theodorecharles/cod2-wasm) |
-| Wolf3D | Wolfenstein 3D, Spear of Destiny | **Still in development** | [wolf3d-wasm](https://github.com/theodorecharles/wolf3d-wasm) |
-| DOSBox | Jill of the Jungle 1–3, Jazz Jackrabbit, Duke Nukem 1–2, Grand Theft Auto DOS Demo, The Need for Speed, SimCity 2000 | **Still in development** | [dosbox-wasm](https://github.com/theodorecharles/dosbox-wasm) |
-| OpenRCT2 | RollerCoaster Tycoon 1+2 | **Still in development** | [openrct2-wasm](https://github.com/theodorecharles/openrct2-wasm) |
-| Console emulation | NES, SNES, PlayStation, PlayStation 2 | **Still in development** | [emulation-wasm](https://github.com/theodorecharles/emulation-wasm) |
+| id Tech 1 | Doom, Doom II, TNT, Plutonia, Heretic, Hexen, Chex Quest | **Still in development** | [idtech1-wasm](https://github.com/BuiltByTed/idtech1-wasm) |
+| id Tech 2 | Quake, Quake II | **Still in development** | [idtech2-wasm](https://github.com/BuiltByTed/idtech2-wasm) |
+| id Tech 3 | Quake III Arena, Return to Castle Wolfenstein | **Still in development** | [idtech3-wasm](https://github.com/BuiltByTed/idtech3-wasm) |
+| id Tech 3 | Wolfenstein: Enemy Territory | **Live** | [idtech3-wasm](https://github.com/BuiltByTed/idtech3-wasm), [wolfet-wasm](https://github.com/BuiltByTed/wolfet-wasm), [live deployment](https://wolfet.tedcharles.net/) |
+| id Tech 4 | Doom 3, Resurrection of Evil, Quake 4, Prey (2006) | **Still in development** | [idtech4-wasm](https://github.com/BuiltByTed/idtech4-wasm) |
+| Build | Blood, Duke Nukem 3D | **Still in development** | [build-wasm](https://github.com/BuiltByTed/build-wasm) |
+| GoldSource | Half-Life, Opposing Force, Blue Shift, Counter-Strike | **Still in development** | [goldsource-wasm](https://github.com/BuiltByTed/goldsource-wasm) |
+| Source | Half-Life 2 | **Still in development** | [source-wasm](https://github.com/BuiltByTed/source-wasm) |
+| IW 2.0 reconstruction | Call of Duty 2 Multiplayer | **Still in development** | [cod2-wasm](https://github.com/BuiltByTed/cod2-wasm) |
+| Wolf3D | Wolfenstein 3D, Spear of Destiny | **Still in development** | [wolf3d-wasm](https://github.com/BuiltByTed/wolf3d-wasm) |
+| DOSBox | Jill of the Jungle 1–3, Jazz Jackrabbit, Duke Nukem 1–2, Grand Theft Auto DOS Demo, The Need for Speed, SimCity 2000 | **Still in development** | [dosbox-wasm](https://github.com/BuiltByTed/dosbox-wasm) |
+| OpenRCT2 | RollerCoaster Tycoon 1+2 | **Still in development** | [openrct2-wasm](https://github.com/BuiltByTed/openrct2-wasm) |
+| Console emulation | NES, SNES, PlayStation, PlayStation 2 | **Still in development** | [emulation-wasm](https://github.com/BuiltByTed/emulation-wasm) |

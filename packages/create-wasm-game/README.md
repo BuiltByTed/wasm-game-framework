@@ -1,8 +1,8 @@
 # create-wasm-game
 
-Create a [WASM Game Framework](https://theodorecharles.github.io/wasm-game-framework/) project.
+Create a [WASM Game Framework](https://builtbyted.github.io/wasm-game-framework/) project.
 
-**Documentation:** [theodorecharles.github.io/wasm-game-framework](https://theodorecharles.github.io/wasm-game-framework/)
+**Documentation:** [builtbyted.github.io/wasm-game-framework](https://builtbyted.github.io/wasm-game-framework/)
 
 The framework is the shared browser shell for native engines compiled to
 WebAssembly. It owns the document, launcher, loading surface, canvas, pointer
@@ -118,11 +118,11 @@ docker run --rm -p 8088:8088 -v my-game-data:/data my-game-wasm:dev
 
 ## Docs
 
-- [Overview](https://theodorecharles.github.io/wasm-game-framework/)
-- [Getting started](https://theodorecharles.github.io/wasm-game-framework/getting-started.html)
-- [Build a game](https://theodorecharles.github.io/wasm-game-framework/build-a-game.html)
-- [How it works](https://theodorecharles.github.io/wasm-game-framework/how-it-works.html)
-- [Adapter runbook](https://theodorecharles.github.io/wasm-game-framework/adapter-runbook.html)
-- [llms.txt](https://theodorecharles.github.io/wasm-game-framework/llms.txt)
+- [Overview](https://builtbyted.github.io/wasm-game-framework/)
+- [Getting started](https://builtbyted.github.io/wasm-game-framework/getting-started.html)
+- [Build a game](https://builtbyted.github.io/wasm-game-framework/build-a-game.html)
+- [How it works](https://builtbyted.github.io/wasm-game-framework/how-it-works.html)
+- [Adapter runbook](https://builtbyted.github.io/wasm-game-framework/adapter-runbook.html)
+- [llms.txt](https://builtbyted.github.io/wasm-game-framework/llms.txt)
 
-Source: [theodorecharles/wasm-game-framework](https://github.com/theodorecharles/wasm-game-framework)
+Source: [BuiltByTed/wasm-game-framework](https://github.com/BuiltByTed/wasm-game-framework)
