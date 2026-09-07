@@ -28,6 +28,7 @@
   ],
   "homepage": "https://builtbyted.github.io/wasm-game-framework/",
   "scripts": {
+    "pretest": "node --test test/launch-preferences.test.js test/public-path.test.js",
     "test": "node test/shell.test.js && node test/document.test.js && node test/bootstrap-media.test.js && node test/runtime.test.js && node test/persistence.test.js && node test/persistence-worker.test.js && node test/durability.test.js && node test/controller.test.js && node test/package-contract.test.js && node test/lifecycle.test.js && node test/password-auth.test.js && node test/data-validator.test.js && node test/media-validator.test.js && node test/media-client.test.js && node test/provisioning.test.js && node test/media-library.test.js && node test/static-server.test.js && node test/media-library-static.test.js && node test/password-static.test.js && node test/base-image-package.test.js && node scripts/check-game-package.js test/fixtures/canonical-site && node test/create-wasm-game.test.js && node test/docs.test.js",
     "docs:build": "node scripts/build-docs.js",
     "docs:check": "node test/docs.test.js",

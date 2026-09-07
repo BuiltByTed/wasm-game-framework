@@ -35,7 +35,7 @@ assert.doesNotMatch(
   /state\.ready\s*\?\s*['"`]\s*(?:game data|files?|cache|container|directory|folder)/i,
   'a ready container must not display file, storage, or cache instructions'
 );
-assert.match(bootstrap, /fetch\('\/wasm-game\.json'/);
+assert.match(bootstrap, /fetch\(WasmGameFramework\.publicUrl\('\/wasm-game\.json'\)/);
 assert.match(bootstrap, /WasmGameAdapter\.start/);
 assert.match(bootstrap, /validateAdapterContract\(config, adapter\)/,
   'the canonical bootstrap must reject incomplete native adapter seams');
@@ -78,7 +78,7 @@ assert.match(html, /autocomplete="current-password"/);
 assert.match(html, /rel="manifest" href="\/app\.webmanifest"/);
 assert.match(html, /meta name="theme-color"/);
 assert.match(html, /rel="icon" href="data:,"/);
-assert.match(bootstrap, /navigator\.serviceWorker\.register\('\/service-worker\.js'/);
+assert.match(bootstrap, /navigator\.serviceWorker\.register\(WasmGameFramework\.publicUrl\('\/service-worker\.js'\)/);
 assert.match(bootstrap, /app\.webmanifest\?\$\{params\}/);
 assert.match(bootstrap, /requestFullscreen\(\{ navigationUI: 'hide' \}\)/);
 assert.match(bootstrap, /fullscreen: elements\.launchFullscreen/);

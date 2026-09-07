@@ -5,6 +5,22 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
+  function publicBasePath() {
+    const input = String(globalThis.WASM_GAME_BASE_PATH || '/');
+    if (input === '/') return input;
+    if (!/^\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_-]+\/?$/.test(input)) throw new Error('Invalid game public base path.');
+    return input.endsWith('/') ? input : `${input}/`;
+  }
+
+  function publicUrl(value) {
+    const base = publicBasePath();
+    const input = String(value || '');
+    if (/^[a-z][a-z0-9+.-]*:/i.test(input) || input.startsWith('//')) return input;
+    const target = new URL(base !== '/' && input.startsWith(base) ? input : input.replace(/^\//, ''), `https://game.invalid${base}`);
+    if (!target.pathname.startsWith(base)) throw new Error('A public asset URL escapes its game base path.');
+    return target.pathname + target.search + target.hash;
+  }
+
   function positive(value, fallback) {
     const number = Number(value);
     return Number.isFinite(number) && number > 0 ? number : fallback;
@@ -246,6 +262,30 @@
     });
   }
 
+  // Explicit launch settings are variant-scoped and allowlisted against the
+  // actual manifest. Never pass arbitrary URL values through to engine commands.
+  function readLaunchPreferences(config, search, variant) {
+    const params = new URLSearchParams(search || '');
+    if (params.get('wgGame') !== String(variant)) return Object.freeze({});
+    const result = {};
+    const advanced = config.graphics !== false && config.advanced !== false;
+    const profile = params.get('wgProfile');
+    if (config.graphics !== false && (config.profiles || [{ value: 'default' }]).some(item => String(item.value) === profile)) result.qualityProfile = profile;
+    const fps = params.get('wgFps');
+    if (advanced && config.fps !== false && fps && /^\d+$/.test(fps) && (config.fpsTargets || [60]).includes(Number(fps))) result.targetFps = Number(fps);
+    if (config.identity !== false && params.has('wgPlayer')) result.playerName = params.get('wgPlayer').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 32) || 'Player';
+    for (const [key, query, enabled] of [
+      ['fullscreen', 'wgFullscreen', config.fullscreen !== false],
+      ['dynamicQuality', 'wgDynamicQuality', advanced && config.dynamicQuality !== false]
+    ]) {
+      const value = params.get(query);
+      if (enabled && (value === '0' || value === '1')) result[key] = value === '1';
+    }
+    const controller = params.get('wgController');
+    if (['wasdMouse', 'custom'].includes(normalizeControllerMode(config.controller)) && ['disabled', 'auto'].includes(controller)) result.controller = controller;
+    return Object.freeze(result);
+  }
+
   function createPreferences(options) {
     const config = options || {};
     const namespace = String(config.namespace || 'wasm-game').replace(/[^a-z0-9._-]/gi, '-');
@@ -279,8 +319,20 @@
 
     function load() {
       let stored = {};
-      try { stored = JSON.parse(localStorage.getItem(storageKey) || '{}') || {}; } catch (_) {}
-      const merged = { ...(config.defaults || {}), ...stored };
+      try {
+        const legacyKey = config.legacyNamespace && `wasm-game-preferences:${String(config.legacyNamespace).replace(/[^a-z0-9._-]/gi, '-')}`;
+        stored = JSON.parse(localStorage.getItem(storageKey) || (legacyKey && localStorage.getItem(legacyKey)) || '{}') || {};
+      } catch (_) {}
+      if (typeof stored !== 'object' || Array.isArray(stored)) stored = {};
+      const merged = { ...(config.defaults || {}), ...stored, ...(config.overrides || {}) };
+      for (const name of ['qualityProfile', 'targetFps']) {
+        const choices = fields[name]?.options;
+        if (choices?.length && !Array.from(choices).some(option => option.value === String(merged[name]))) {
+          merged[name] = Array.from(choices).some(option => option.value === String(config.defaults?.[name]))
+            ? config.defaults[name] : choices[0].value;
+        }
+      }
+      for (const name of ['dynamicQuality', 'fullscreen']) if (typeof merged[name] !== 'boolean') merged[name] = Boolean(config.defaults?.[name]);
       if (fields.playerName && merged.playerName) fields.playerName.value = String(merged.playerName).slice(0, 32);
       if (fields.qualityProfile && merged.qualityProfile) fields.qualityProfile.value = String(merged.qualityProfile);
       if (fields.targetFps && merged.targetFps) fields.targetFps.value = String(merged.targetFps);
@@ -1288,7 +1340,7 @@
 
   async function loadBrowserDataValidator(modulePath) {
     if (typeof location === 'undefined') throw new Error('Browser location is unavailable for the data-validator module.');
-    const url = new URL(modulePath, location.href);
+    const url = new URL(publicUrl(modulePath), location.href);
     if (url.origin !== location.origin) throw new Error('Data-validator module must use the current origin.');
     return import(url.href);
   }
@@ -1792,8 +1844,8 @@
 
   function createWakeClient(options) {
     const config = options || {};
-    const statusUrl = config.statusUrl || '/status';
-    const wakeUrl = config.wakeUrl || '/wake';
+    const statusUrl = publicUrl(config.statusUrl || '/status');
+    const wakeUrl = publicUrl(config.wakeUrl || '/wake');
     const interval = Math.max(100, Number(config.interval) || 500);
     const timeout = Math.max(interval, Number(config.timeout) || 45000);
     let pending;
@@ -1839,9 +1891,9 @@
 
   function createPasswordClient(options) {
     const config = options || {};
-    const statusUrl = config.statusUrl || '/auth/status';
-    const loginUrl = config.loginUrl || '/auth/login';
-    const logoutUrl = config.logoutUrl || '/auth/logout';
+    const statusUrl = publicUrl(config.statusUrl || '/auth/status');
+    const loginUrl = publicUrl(config.loginUrl || '/auth/login');
+    const logoutUrl = publicUrl(config.logoutUrl || '/auth/logout');
 
     async function request(url, init) {
       const response = await fetch(url, {
@@ -1884,7 +1936,7 @@
 
   function createContainerDataClient(options) {
     const config = options || {};
-    const baseUrl = String(config.baseUrl || '/game-data').replace(/\/$/, '');
+    const baseUrl = publicUrl(config.baseUrl || '/game-data').replace(/\/$/, '');
     const variant = String(config.variant || '').toLowerCase();
     const configuredMedia = String(config.media == null ? '' : config.media).trim();
     const hardLockedMedia = config.mediaLocked === true && Boolean(configuredMedia);
@@ -2898,6 +2950,8 @@
 
   const api = Object.freeze({
     version: '0.9.6',
+    publicBasePath,
+    publicUrl,
     DISPLAY_MODES,
     ENGINE_STATES,
     CONTROLLER_MODES,
@@ -2912,6 +2966,7 @@
     detectCapabilities,
     requireCapabilities,
     createPreferences,
+    readLaunchPreferences,
     createControllerManager,
     normalizeWasdMouseController,
     createQualityController,

@@ -9,6 +9,9 @@ const { createProvisioningStore, normalizeManifestCollection } = require('./prov
 const { createMediaLibraryStore } = require('./media-library');
 const { createPasswordGate } = require('./password-auth');
 const frameworkPackage = require('../package.json');
+const { normalizeBasePath, publicPath, publicDocument } = require('./public-path');
+const { createPwaManifest, createServiceWorkerSource } = require('./pwa');
+const basePath = normalizeBasePath(process.env.WASM_GAME_BASE_PATH);
 
 const siteRoot = path.resolve(process.env.WASM_GAME_SITE_ROOT || '/opt/game-site');
 const shellRoot = path.resolve(process.env.WASM_GAME_SHELL_ROOT || '/opt/shared-shell');
@@ -78,51 +81,14 @@ function selectedGameConfig(url) {
 }
 
 function pwaManifest(url) {
-  const selected = selectedGameConfig(url) || {};
-  const pwa = selected.pwa && typeof selected.pwa === 'object' ? selected.pwa : {};
-  const title = String(pwa.name || selected.title || 'WASM Game');
-  const shortName = String(pwa.shortName || title).slice(0, 30);
-  const selectedKey = String(selected.id || '').toLowerCase();
-  const locked = variant !== 'suite' || !gameConfig?.variants;
-  const selectedMedia = media || (/^[a-f0-9]{32}$/i.test(String(url.searchParams.get('media') || '')) ?
-    String(url.searchParams.get('media')).toLowerCase() : '');
-  const startParams = new URLSearchParams();
-  if (!locked && selectedKey) startParams.set('game', selectedKey);
-  if (selectedMedia) startParams.set('media', selectedMedia);
-  const defaultStartUrl = startParams.size ? `/?${startParams}` : '/';
-  const startUrl = String(pwa.startUrl || defaultStartUrl);
-  const fallbackIcon = selected.icon ? [{ src: String(selected.icon), sizes: 'any' }] : [];
-  const icons = Array.isArray(pwa.icons) && pwa.icons.length ? pwa.icons : fallbackIcon;
-  return {
-    id: String(pwa.id || startUrl),
-    name: title,
-    short_name: shortName,
-    description: String(pwa.description || selected.description || ''),
-    start_url: startUrl,
-    scope: String(pwa.scope || '/'),
-    display: String(pwa.display || 'standalone'),
-    background_color: String(pwa.backgroundColor || '#000000'),
-    theme_color: String(pwa.themeColor || selected.theme?.accent || '#111827'),
-    orientation: String(pwa.orientation || 'landscape'),
-    icons: icons.map(icon => ({
-      src: String(icon.src),
-      sizes: String(icon.sizes || 'any'),
-      ...(icon.type ? { type: String(icon.type) } : {}),
-      ...(icon.purpose ? { purpose: String(icon.purpose) } : {})
-    }))
-  };
+  return createPwaManifest({
+    selected: selectedGameConfig(url) || {}, locked: variant !== 'suite' || !gameConfig?.variants,
+    media, url, basePath
+  });
 }
 
 function serviceWorkerSource() {
-  const cacheName = `wasm-game-shell-${frameworkPackage.version}`;
-  const shellPaths = ['/', '/shared-shell/wasm-game-framework.css', '/shared-shell/wasm-game-framework.js',
-    '/shared-shell/wasm-game-bootstrap.js', '/wasm-game.json', '/game-adapter.js'];
-  return `'use strict';\n` +
-    `const CACHE = ${JSON.stringify(cacheName)};\n` +
-    `const SHELL = ${JSON.stringify(shellPaths)};\n` +
-    `self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE).then(cache => Promise.all(SHELL.map(path => fetch(path, { cache: 'no-cache' }).then(response => { if (response.ok) return cache.put(path, response); }).catch(() => undefined)))).then(() => self.skipWaiting())); });\n` +
-    `self.addEventListener('activate', event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('wasm-game-shell-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())); });\n` +
-    `self.addEventListener('fetch', event => { const url = new URL(event.request.url); if (event.request.method !== 'GET' || url.origin !== self.location.origin || !SHELL.includes(url.pathname)) return; event.respondWith(fetch(event.request).then(response => { if (response.ok) { const copy = response.clone(); caches.open(CACHE).then(cache => cache.put(url.pathname, copy)); } return response; }).catch(() => caches.match(url.pathname).then(response => response || Response.error()))); });\n`;
+  return createServiceWorkerSource({ version: frameworkPackage.version, basePath });
 }
 
 const mime = new Map(Object.entries({
@@ -216,6 +182,18 @@ async function serveFile(request, response, filename, cacheControl) {
   return true;
 }
 
+async function serveDocument(request, response, filename) {
+  let html;
+  try { html = await fsp.readFile(filename, 'utf8'); } catch (error) {
+    if (error.code === 'ENOENT') return false;
+    throw error;
+  }
+  const body = Buffer.from(publicDocument(html, basePath));
+  response.writeHead(200, commonHeaders({ 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': body.length, 'Cache-Control': 'no-cache' }));
+  response.end(request.method === 'HEAD' ? undefined : body);
+  return true;
+}
+
 const server = http.createServer(async (request, response) => {
   try {
     const url = new URL(request.url, 'http://localhost');
@@ -305,6 +283,7 @@ const server = http.createServer(async (request, response) => {
     if (url.pathname === '/wasm-game-config.js' && (request.method === 'GET' || request.method === 'HEAD')) {
       const body = Buffer.from(
         `globalThis.WASM_GAME_VARIANT = ${JSON.stringify(variant)};\n` +
+        `globalThis.WASM_GAME_BASE_PATH = ${JSON.stringify(basePath)};\n` +
         `globalThis.WASM_GAME_MEDIA = ${JSON.stringify(media)};\n`
       );
       response.writeHead(200, commonHeaders({
@@ -323,14 +302,14 @@ const server = http.createServer(async (request, response) => {
       const body = Buffer.from(serviceWorkerSource());
       response.writeHead(200, commonHeaders({
         'Content-Type': 'text/javascript; charset=utf-8', 'Content-Length': body.length,
-        'Cache-Control': 'no-cache', 'Service-Worker-Allowed': '/'
+        'Cache-Control': 'no-cache', 'Service-Worker-Allowed': basePath
       }));
       return request.method === 'HEAD' ? response.end() : response.end(body);
     }
     if (url.pathname === '/favicon.ico' && (request.method === 'GET' || request.method === 'HEAD')) {
       const icon = selectedGameConfig(url)?.icon;
       if (icon && String(icon).startsWith('/') && icon !== '/favicon.ico') {
-        response.writeHead(302, commonHeaders({ Location: String(icon), 'Cache-Control': 'no-cache' }));
+        response.writeHead(302, commonHeaders({ Location: publicPath(icon, basePath), 'Cache-Control': 'no-cache' }));
         return response.end();
       }
       response.writeHead(204, commonHeaders({ 'Cache-Control': 'no-cache' }));
@@ -345,13 +324,13 @@ const server = http.createServer(async (request, response) => {
     const relative = shared ? url.pathname.slice('/shared-shell'.length) : url.pathname;
     if (!shared && canonicalDocument && (url.pathname === '/' || url.pathname === '/index.html')) {
       const documentPath = path.join(shellRoot, 'index.html');
-      if (await serveFile(request, response, documentPath, 'no-cache')) return;
+      if (await serveDocument(request, response, documentPath)) return;
     }
     let target = safeStaticPath(shared ? shellRoot : siteRoot, relative === '/' ? '/index.html' : relative);
     if (target && await serveFile(request, response, target, 'no-cache')) return;
     if (!shared && !path.extname(url.pathname)) {
       target = canonicalDocument ? path.join(shellRoot, 'index.html') : path.join(siteRoot, 'index.html');
-      if (await serveFile(request, response, target, 'no-cache')) return;
+      if (await serveDocument(request, response, target)) return;
     }
     json(response, 404, { error: 'Not found.' });
   } catch (error) {
@@ -361,6 +340,6 @@ const server = http.createServer(async (request, response) => {
 });
 
 server.listen(port, '0.0.0.0', () => {
-  console.log(`wasm-game-framework: serving ${variant} on tcp/${port}; owner data ${stores.size ? `${stores.size} policy variant(s) loaded` : 'not required'}`);
+  console.log(`wasm-game-framework: serving ${variant} on tcp/${server.address().port}; owner data ${stores.size ? `${stores.size} policy variant(s) loaded` : 'not required'}`);
   if (stores.size && setupToken) console.log('wasm-game-framework: first-run game-data setup requires WASM_SETUP_TOKEN');
 });

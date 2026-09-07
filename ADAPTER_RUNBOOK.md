@@ -552,3 +552,27 @@ unreached behavior as passed because its adapter contains a plausible hook.
   asset lookups; test categories independently.
 - **Second launch freezes:** a second main loop was created or native shutdown
   did not complete.
+
+## Public-path-aware network resources
+
+`WasmGameFramework.publicUrl('/game-adapter.js')` resolves a site-local **network**
+resource under the server-injected `WASM_GAME_BASE_PATH`; `publicBasePath()`
+returns the normalized directory. The helper leaves explicit external/data/blob
+URLs alone, avoids double-prefixing and rejects relative escapes. It defaults
+to `/` for existing root deployments.
+
+Use it for adapter fetches, script and worker URLs, and paths passed to
+`new URL(..., location.href)` before selecting the WebSocket protocol. The shared
+data, validator-import, wake and password clients already use it. Engine glue
+that derives assets from its own script URL can inherit the prefixed script
+directory, but verify that behavior for each engine, including workers.
+
+Do not apply it to `FS.readFile`, persistence roots, mounted IWAD paths, command
+arguments naming native files, or other virtual-filesystem state. Do not replace
+every slash-prefixed string or monkey-patch the browser's network globals.
+
+Steam/direct launch settings use variant-scoped `wgGame` and allowlisted
+`wgProfile`, `wgFps`, `wgPlayer`, `wgFullscreen`, `wgDynamicQuality` and
+`wgController` URL values. `readLaunchPreferences` validates them against the
+selected manifest before adapter initialization. Read the resulting framework
+preferences rather than treating arbitrary URL text as native console commands.

@@ -84,7 +84,7 @@
     const params = new URLSearchParams({ variant });
     const id = WasmGameFramework.normalizeMediaEntryId(mediaId);
     if (id) params.set('media', id);
-    manifestLink.href = `/app.webmanifest?${params}`;
+    manifestLink.href = WasmGameFramework.publicUrl(`/app.webmanifest?${params}`);
   }
 
   function updateMediaUrl(mediaId) {
@@ -131,7 +131,7 @@
     elements.loadingTitle.textContent = config.loadingTitle || `Starting ${config.title || variant}…`;
     elements.icon.hidden = !config.icon;
     if (config.icon) {
-      const iconUrl = new URL(String(config.icon), location.href).href;
+      const iconUrl = new URL(WasmGameFramework.publicUrl(config.icon), location.href).href;
       elements.icon.src = iconUrl;
       elements.icon.alt = config.title || variant;
       elements.icon.setAttribute('data-shell-pixelated', config.iconPixelated ? 'true' : 'false');
@@ -171,7 +171,7 @@
       document.documentElement.style.setProperty(`--wasm-game-framework-${name}`, String(value));
     }
     if (config.background) {
-      const backgroundUrl = new URL(String(config.background), location.href).href;
+      const backgroundUrl = new URL(WasmGameFramework.publicUrl(config.background), location.href).href;
       document.documentElement.style.setProperty('--wasm-game-framework-background-image', `url(${JSON.stringify(backgroundUrl)})`);
       document.documentElement.style.setProperty('--wasm-game-framework-background-position', String(config.backgroundPosition || 'center'));
       document.documentElement.style.setProperty('--wasm-game-framework-background-size', String(config.backgroundSize || 'cover'));
@@ -271,7 +271,7 @@
   }
 
   async function loadAdapter() {
-    const source = String(config.adapter || '/game-adapter.js');
+    const source = WasmGameFramework.publicUrl(config.adapter || '/game-adapter.js');
     await new Promise((resolve, reject) => {
       const script = document.createElement('script');
       script.src = source;
@@ -371,7 +371,7 @@
   }
 
   async function initialize() {
-    rootConfig = Object.freeze(await fetch('/wasm-game.json', { cache: 'no-store' }).then(response => {
+    rootConfig = Object.freeze(await fetch(WasmGameFramework.publicUrl('/wasm-game.json'), { cache: 'no-store' }).then(response => {
       if (!response.ok) throw new Error(`Game configuration failed with HTTP ${response.status}.`);
       return response.json();
     }));
@@ -412,7 +412,9 @@
       onContextLost: event => adapter?.contextLost?.(event, context()),
       onContextRestored: event => adapter?.contextRestored?.(event, context()),
       preferences: {
-        namespace: rootConfig.preferencesNamespace || rootConfig.id || 'wasm-game',
+        namespace: `${rootConfig.preferencesNamespace || rootConfig.id || 'wasm-game'}.${variant}`,
+        legacyNamespace: rootConfig.preferencesNamespace || rootConfig.id || 'wasm-game',
+        overrides: WasmGameFramework.readLaunchPreferences(config, location.search, variant),
         playerName: elements.playerName, qualityProfile: elements.graphicsProfile,
         targetFps: elements.fpsTarget, dynamicQuality: elements.dynamicQuality, fullscreen: elements.launchFullscreen,
         controller: elements.controllerSelect,
@@ -430,7 +432,7 @@
     if (auth.required && !auth.authenticated) showPasswordGate(true);
     else await initializeRuntime();
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-      navigator.serviceWorker.register('/service-worker.js', { scope: '/' }).catch(error => {
+      navigator.serviceWorker.register(WasmGameFramework.publicUrl('/service-worker.js'), { scope: WasmGameFramework.publicBasePath() }).catch(error => {
         console.warn('[wasm-game-framework] PWA service worker registration failed:', error);
       });
     }
@@ -471,6 +473,8 @@
   elements.variant.addEventListener('change', () => {
     const url = new URL(location.href);
     url.searchParams.set('game', elements.variant.value);
+    // A suite switch is a different game, not a replay of Steam's old launch.
+    for (const key of Array.from(url.searchParams.keys())) if (key.startsWith('wg')) url.searchParams.delete(key);
     location.href = url.href;
   });
   elements.form.addEventListener('submit', event => {

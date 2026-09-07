@@ -304,3 +304,25 @@ substitute for one real native-process/image pass.
   after idle shutdown, or JOIN did not reuse the wake client.
 - **Container exits when idle:** the lifecycle boundary stopped PID 1 instead of
   only the native dedicated process.
+
+## 11. Hosting below a game path
+
+Set `WASM_GAME_BASE_PATH=/doom2/` and `WASM_GAME_VARIANT=doom2` for a locked
+endpoint. The reverse proxy strips `/doom2/` before forwarding requests to the
+container. Keep upstream ports private. Redirect `/doom2` to `/doom2/`, retaining
+its query, and forward WebSocket upgrades to the same stripped-prefix upstream.
+
+The static server validates the configured base path, scopes its document
+resources/base element, injected runtime configuration, favicon, PWA manifest,
+service worker and password-session cookie path to it. Worker activation removes
+only older caches belonging to that exact prefix, never another game's caches.
+Use a separate locked endpoint per public game path; suites still work at `/`
+when no base path is configured. Native supervisors must also enforce the
+deployment variant for wake requests, not just the static data service.
+
+This does not automatically repair a downstream adapter's root-relative fetches,
+workers or WebSockets. Use the browser public-URL helper described in the adapter
+runbook and test actual engine assets through the proxy. Never rewrite native
+virtual-filesystem paths to look like HTTP paths. The integration test
+`test/public-path.test.js` runs a real server behind a stripping proxy and checks
+variant/data/auth/PWA boundaries; it does not claim rendered gameplay.

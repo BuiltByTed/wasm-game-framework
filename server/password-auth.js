@@ -2,6 +2,7 @@
 
 const crypto = require('node:crypto');
 const { parseDuration } = require('./lifecycle');
+const { normalizeBasePath } = require('./public-path');
 
 const DEFAULT_TTL_MS = 12 * 60 * 60 * 1000;
 const DEFAULT_BODY_LIMIT = 8192;
@@ -10,6 +11,7 @@ function passwordOptions(environment) {
   const env = environment || process.env;
   return Object.freeze({
     password: String(env.WASM_GAME_PASSWORD || ''),
+    cookiePath: normalizeBasePath(env.WASM_GAME_BASE_PATH),
     ttlMs: parseDuration(env.WASM_GAME_PASSWORD_TTL || '12h', DEFAULT_TTL_MS),
     trustProxy: /^(1|true|yes|on)$/i.test(String(env.WASM_GAME_TRUST_PROXY || 'false')),
     secret: env.WASM_GAME_SESSION_SECRET ? String(env.WASM_GAME_SESSION_SECRET) : null
@@ -85,6 +87,7 @@ function createPasswordGate(options) {
   }
   const ttlMs = Math.max(1000, Number(config.ttlMs) || DEFAULT_TTL_MS);
   const cookieName = String(config.cookieName || 'wasm_game_session').replace(/[^A-Za-z0-9_-]/g, '_');
+  const cookiePath = normalizeBasePath(config.cookiePath);
   const bodyLimit = Math.max(256, Number(config.bodyLimit) || DEFAULT_BODY_LIMIT);
   const responseHeaders = config.headers;
   const failures = new Map();
@@ -116,7 +119,7 @@ function createPasswordGate(options) {
   function cookie(request, value, maxAge) {
     return [
       `${cookieName}=${value}`,
-      'Path=/',
+      `Path=${cookiePath}`,
       'HttpOnly',
       'SameSite=Strict',
       `Max-Age=${Math.max(0, Math.floor(maxAge))}`,

@@ -9,7 +9,7 @@ assert.deepEqual(passwordOptions({
   WASM_GAME_PASSWORD: 'secret',
   WASM_GAME_PASSWORD_TTL: '2h',
   WASM_GAME_TRUST_PROXY: 'true'
-}), { password: 'secret', ttlMs: 7200000, trustProxy: true, secret: null });
+}), { password: 'secret', cookiePath: '/', ttlMs: 7200000, trustProxy: true, secret: null });
 assert.equal(typeof createPasswordClient, 'function');
 
 function start(gate) {
