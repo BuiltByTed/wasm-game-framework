@@ -22,6 +22,7 @@ Then:
 
 ```bash
 cd my-game
+# Hand RUNBOOK.md to an implementation agent, or follow it yourself.
 npm test
 npm start
 ```
@@ -41,6 +42,8 @@ serves the canonical framework document with this site as the game root.
 | `vendor/wasm-game-framework/` | Pinned framework copy used by `npm test` and `npm start` |
 | `Dockerfile`, `scripts/build-image.sh` | Image layered on `wasm-game-framework:<version>` |
 | `test/package-contract.test.js` | Runs `check-game-package.js` |
+| `RUNBOOK.md` | AI implementation contract: this project's policy, ordered work, acceptance |
+| `vendor/wasm-game-framework/ADAPTER_RUNBOOK.md` | Full adapter acceptance runbook |
 
 The generated `web/` directory is a game site, not a web application.
 

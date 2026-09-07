@@ -37,11 +37,12 @@ npm start
 
 `npm create wasm-game@latest my-game` is the same command. The scaffold writes
 `web/wasm-game.json`, `web/game-adapter.js`, data policy, an exact
-`@wasm-game-framework/browser@0.9.6` pin, Docker build files, and a package
-contract test. It does not write `index.html`, launcher CSS, a service worker,
-or a web manifest. Defaults are explicit `displayMode: "4:3"`,
-`menuCursor: "browser"`, `controller.mode: "disabled"`, persistence attached
-before native main, and neutral ready-state copy.
+`@wasm-game-framework/browser@0.9.6` pin, Docker build files, a package
+contract test, and `RUNBOOK.md` for the implementation agent. It does not
+write `index.html`, launcher CSS, a service worker, or a web manifest.
+Defaults are explicit `displayMode: "4:3"`, `menuCursor: "browser"`,
+`controller.mode: "disabled"`, persistence attached before native main, and
+neutral ready-state copy.
 
 Useful flags: `--display-mode`, `--menu-cursor`, `--controller`, `--media`,
 `--server`. See [Getting started](https://theodorecharles.github.io/wasm-game-framework/getting-started.html).

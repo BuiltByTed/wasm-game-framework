@@ -88,4 +88,5 @@ assert.match(bootstrap, /passwordClient\.login\(elements\.password\.value\)/);
 assert.match(bootstrap, /await initializeRuntime\(\)/,
   'the native adapter must not initialize until password authentication succeeds');
 
+require('./bootstrap-console.test.js');
 console.log('canonical framework document and adapter bootstrap tests passed');

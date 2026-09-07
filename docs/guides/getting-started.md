@@ -15,7 +15,9 @@ npm test
 npm start
 ```
 
-`npm create wasm-game@latest my-game` is the same command. Useful flags:
+`npm create wasm-game@latest my-game` is the same command. The scaffold writes
+`RUNBOOK.md`: give that file to an implementation agent along with
+[llms.txt](llms.txt). Useful flags:
 
 ```bash
 npx create-wasm-game my-game \

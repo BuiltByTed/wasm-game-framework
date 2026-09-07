@@ -20,7 +20,12 @@ web/wasm-game-data.json allowlisted files / media
 framework-lock.json     exact {{PACKAGE_NAME}}@{{VERSION}} pin
 Dockerfile              layered on the versioned framework base
 test/package-contract.test.js
+RUNBOOK.md              AI implementation contract for this title
 ```
+
+`RUNBOOK.md` is the prompt to give an implementation agent. It pins this
+project's display/cursor/controller/persistence policy and points at
+[llms.txt](llms.txt) plus the [adapter runbook](adapter-runbook.html).
 
 Edit the manifest. Do not add an `index.html`.
 

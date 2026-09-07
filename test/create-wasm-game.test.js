@@ -47,7 +47,16 @@ function assertScaffold(projectRoot) {
   assert.ok(fs.existsSync(path.join(projectRoot, 'Dockerfile')));
   assert.ok(fs.existsSync(path.join(projectRoot, 'scripts', 'build-image.sh')));
   assert.ok(fs.existsSync(path.join(projectRoot, 'test', 'package-contract.test.js')));
+  assert.ok(fs.existsSync(path.join(projectRoot, 'RUNBOOK.md')));
   assert.ok(fs.existsSync(path.join(projectRoot, 'vendor', 'wasm-game-framework', 'scripts', 'check-game-package.js')));
+  assert.ok(fs.existsSync(path.join(projectRoot, 'vendor', 'wasm-game-framework', 'ADAPTER_RUNBOOK.md')));
+  const runbook = fs.readFileSync(path.join(projectRoot, 'RUNBOOK.md'), 'utf8');
+  assert.match(runbook, /llms\.txt/);
+  assert.match(runbook, /ADAPTER_RUNBOOK/);
+  assert.match(runbook, /persistence\.attach|IDBFS/);
+  assert.match(runbook, new RegExp(manifest.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(runbook, /displayMode/);
+  assert.doesNotMatch(runbook, /index\.html[\s\S]{0,40}you should add/i);
 
   for (const forbidden of [...FORBIDDEN_SITE_FILES, 'web/service-worker.js', 'index.html']) {
     assert.equal(fs.existsSync(path.join(projectRoot, forbidden)), false, `must not emit ${forbidden}`);
@@ -77,6 +86,9 @@ assert.ok(generated.files['web/wasm-game.json']);
 assert.ok(generated.files['web/game-adapter.js']);
 assert.ok(generated.files['Dockerfile']);
 assert.ok(generated.files['test/package-contract.test.js']);
+assert.ok(generated.files['RUNBOOK.md']);
+assert.match(generated.files['RUNBOOK.md'], /AI implementation runbook/);
+assert.match(generated.files['RUNBOOK.md'], /theodorecharles\.github\.io\/wasm-game-framework\/llms\.txt/);
 assert.ok(!generated.files['web/index.html']);
 assert.ok(!generated.files['web/service-worker.js']);
 assert.ok(!generated.files['web/app.webmanifest']);

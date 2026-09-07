@@ -91,6 +91,14 @@ released pointer move/button callbacks. The property defaults to `"native"`
 only so older manifests keep their existing behavior. New and audited
 manifests should always declare it.
 
+In the local development runtime, mixed-engine adapters can select their active
+policy with `context.shell.setMenuCursor('browser' | 'native' | 'none')` when
+changing profiles. This updates cursor visibility and released pointer delivery
+immediately without changing engine state or acquiring capture. Captured
+gameplay always hides the host cursor. `shell.config.menuCursor` reflects the
+active policy; invalid modes are rejected. This addition does not repin any
+consumer or imply that a published 0.9.6 artifact includes it.
+
 Launcher `description` is optional. Normal launcher and PWA copy describes the
 game, not setup, file placement, storage, or caching. Put file instructions in
 `provisioningText`; the framework shows them only while required data is
@@ -191,6 +199,27 @@ native transition becomes visible late. That is a compatibility fallback, not
 the primary request: Chrome may reject it because transient activation has
 already ended. Acceptance must prove the synchronous path. A delayed-only
 intent is not considered a working JOIN or Resume capture implementation.
+
+The framework coalesces down/up, state-publication and next-frame attempts
+while one browser request is pending. Pending is not captured: only
+`document.pointerLockElement` establishes capture. Promise resolution/rejection
+allows another attempt; legacy undefined-return APIs complete through
+`pointerlockchange`/`pointerlockerror`. A late Promise from an older request
+must not clear a newer request. Tests must include delayed browser completion,
+not only a mock that acquires lock synchronously.
+
+Read-only capture diagnostics are published on the document root:
+`shellCaptureAttempts`, `shellCaptureStatus`, `shellCaptureError`, and
+`shellCaptureContext`. Context records the request's event/trust, canvas
+connection/document, visibility, focus, and transient activation. Rejections
+retain the browser's bounded exception text even if a later generic error
+event arrives. These describe attempted requests, not permission to capture;
+only `shellInputCaptured` and the actual pointer-lock element report capture.
+
+During native loading with active capture intent, `showLoading()` displays the
+progress overlay without hiding the canvas beneath it. Hiding that runtime
+would invalidate pending/retained browser capture. Ordinary boot and loading
+without intent still hide the runtime.
 
 Never fake `gameplay` merely to obtain capture. Apart from the exact rising
 JOIN/New Game/Resume gesture above, never capture while a main, pause, limbo,

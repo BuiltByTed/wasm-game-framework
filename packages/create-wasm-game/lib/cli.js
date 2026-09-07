@@ -6,9 +6,9 @@ const { generateProject, writeProject } = require('./generate');
 function printHelp() {
   process.stdout.write(`Usage: create-wasm-game <directory> [options]
 
-Create a WASM Game Framework project. The framework owns the document,
-launcher CSS, service worker, and web manifest. This scaffold never writes
-those files.
+Create a WASM Game Framework project. Writes RUNBOOK.md for an
+implementation agent. The framework owns the document, launcher CSS,
+service worker, and web manifest. This scaffold never writes those files.
 
 Options:
   --name <id>                 Game id (default: directory name)
@@ -87,7 +87,8 @@ function main(argv) {
     const root = writeProject(project);
     process.stdout.write(`Created ${project.options.title} in ${root}\n`);
     process.stdout.write(`Pinned ${project.lock.package}@${project.lock.version}\n`);
-    process.stdout.write('Next: cd into the directory and run npm test\n');
+    process.stdout.write('Wrote RUNBOOK.md for the implementation agent\n');
+    process.stdout.write('Next: cd into the directory, read RUNBOOK.md, and run npm test\n');
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 1;

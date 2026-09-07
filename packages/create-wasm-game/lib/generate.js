@@ -429,6 +429,7 @@ This directory is a game site, not a web application. The framework owns
 - \`web/wasm-game-data.json\` — validated data / media policy
 - \`Dockerfile\` and \`scripts/build-image.sh\` — image build
 - \`test/package-contract.test.js\` — package checker
+- \`RUNBOOK.md\` — AI implementation contract (this tree + framework docs)
 
 ## Commands
 
@@ -456,6 +457,154 @@ npm-debug.log*
 `;
 }
 
+function docsUrl(page) {
+  return `https://theodorecharles.github.io/wasm-game-framework/${page}`;
+}
+
+function aiRunbook(options, lock) {
+  const persistenceLine = options.persistence
+    ? '`attach()` the IDBFS root `/save/{variant}` **before** native main reads configs or saves.'
+    : '`persistence` is `false`. Do not invent a save mount unless the engine actually writes state.';
+  const resizeLine = options.nativeManaged
+    ? '`resize(detail)` must change the real backbuffer, viewport, and projection in the same frame. Use `detail.cssWidth`/`cssHeight` when the CSS box is the intended size.'
+    : 'Fixed display: keep `syncBackbuffer` true unless you later switch to `dynamic`.';
+  const pointerLine = options.menuCursor === 'native'
+    ? 'Forward `detail.x`/`detail.y` into the 640×480 native menu. Do not add CSS, DPR, or letterbox offsets.'
+    : options.menuCursor === 'none'
+      ? 'Menus are pointer-free. Do not start handling pointer callbacks without changing `menuCursor`.'
+      : 'Host cursor stays visible on menus. Branch on `detail.captured` for relative look vs absolute menu.';
+  const captureLine = options.pointerLock
+    ? 'The framework is the only caller of `requestPointerLock()`. Report capture intent on the trusted JOIN/New Game click; `readEngineState()` must come from native truth.'
+    : 'Pointer lock is off. Do not request it from the adapter.';
+  const controllerLine = options.controller === 'disabled'
+    ? 'Controller polling is off. Do not add Gamepad code until you change `controller.mode`.'
+    : options.controller === 'wasdMouse'
+      ? 'Map `controllerFrame(detail).actions` into the same native queue as keyboard/mouse. Never dispatch synthetic DOM events.'
+      : 'Map raw `detail.gamepad` yourself. Release all held native actions on disconnect.';
+  const mediaLine = options.media
+    ? `Media library is declared. Load only the selected entry with \`context.dataClient.media.load()\`. Keep format knowledge in \`web/data-validator.mjs\`.`
+    : 'Fixed files live in `web/wasm-game-data.json`. Put format checks in a downstream `.mjs` validator, not the framework.';
+  const serverLine = options.server
+    ? `A dedicated-server stub is in \`server/lifecycle.js\`. Follow ${docsUrl('server-runbook.html')} and ${docsUrl('lifecycle.html')} before exposing \`/wake\` or \`/ws\`.`
+    : 'No dedicated-server stub. Add `--server` and read the server runbook before inventing wake/idle or a WebSocket proxy.';
+
+  return `# ${options.title} — AI implementation runbook
+
+This file is the working contract for an agent implementing **${options.title}**
+on WASM Game Framework **${lock.package}@${lock.version}**.
+
+Read the canonical docs before editing. Do not invent a second website.
+
+## Canonical docs
+
+Read these first, in order:
+
+1. ${docsUrl('llms.txt')} — machine-readable contract index
+2. ${docsUrl('build-a-game.html')} — working sequence
+3. \`vendor/wasm-game-framework/ADAPTER_RUNBOOK.md\`
+   (same text as ${docsUrl('adapter-runbook.html')})
+4. ${docsUrl('adapter.html')}, ${docsUrl('display.html')}, ${docsUrl('input.html')},
+   ${docsUrl('persistence.html')}, ${docsUrl('game-data.html')}
+
+Full dump: ${docsUrl('llms-full.txt')}
+
+## This project's declared policy
+
+These values are already written into \`web/wasm-game.json\`. Change the
+manifest if the engine requires different policy. Do not leave them implicit.
+
+| Field | Value |
+| --- | --- |
+| id | \`${options.id}\` |
+| title | ${options.title} |
+| displayMode | \`${options.displayMode}\` |
+| menuCursor | \`${options.menuCursor}\` |
+| nativeManaged | \`${options.nativeManaged}\` |
+| syncBackbuffer | \`${!options.nativeManaged}\` |
+| pointerLock | \`${options.pointerLock}\` |
+| fullscreen | \`${options.fullscreen}\` |
+| controller.mode | \`${options.controller}\` |
+| persistence | ${options.persistence ? '`/save/{variant}`' : '`false`'} |
+| media library | \`${options.media}\` |
+| dedicated server stub | \`${options.server}\` |
+| framework pin | \`${lock.package}@${lock.version}\` |
+
+## What the scaffold already did
+
+- Canonical document, launcher, CSS, PWA, and service worker stay in the
+  framework. This tree must not grow a downstream \`index.html\`, CSS file,
+  service worker, or web manifest.
+- \`web/game-adapter.js\` is a stub. \`start()\` already attaches persistence
+  (when enabled) before \`callMain\`.
+- \`npm test\` runs \`vendor/wasm-game-framework/scripts/check-game-package.js\`
+  against \`web/\`.
+- \`npm start\` serves this site with the pinned framework document.
+
+## What you implement
+
+Work in this order. Do not skip to a canvas screenshot and call it done.
+
+1. **Native source.** Start from official or maintained **native** source. Design
+   the Emscripten target, cooperative loop, filesystem mounts, and adapter here.
+   Do not copy another project's generated JS/WASM or its web port.
+2. **Compile.** Produce the engine factory with \`noInitialRun: true\`. Replace
+   \`createNativeModule()\` in \`web/game-adapter.js\`. Keep
+   \`context.persistence.attach(module.FS, { root: context.persistence.root })\`
+   before any native config or save lookup.
+3. **Data.** Fill \`web/wasm-game-data.json\` with the real allowlisted files
+   (or finish the media-library validator). Game archives stay on \`/data\`,
+   never in Git. ${mediaLine}
+4. **State.** ${captureLine} Valid states: \`launcher\`, \`loading\`, \`menu\`,
+   \`gameplay\`, \`paused\`, \`debrief\`, \`crashed\`. Gameplay only after a
+   real controllable snapshot or world.
+5. **Display.** ${resizeLine}
+6. **Pointer.** ${pointerLine}
+7. **Identity and quality.** Sanitize the player name. Re-apply it after
+   native configs load. Profiles must change real renderer settings.
+8. **Controller.** ${controllerLine}
+9. **Persistence.** ${persistenceLine} Hard-refresh must restore a changed
+   keybinding or save the engine actually read.
+10. **Dedicated server.** ${serverLine}
+11. **Image.** \`WASM_GAME_FRAMEWORK_ROOT=… npm run build:image\`. Data is a
+    \`/data\` volume. Do not bake PAKs/WADs/ISOs into the image.
+
+## Forbidden
+
+- Downstream \`index.html\`, \`*.css\`, service worker, or \`*.webmanifest\`
+- Inferring \`gameplay\` from a timeout, canvas visibility, or the last click
+- Calling \`requestPointerLock()\` / \`exitPointerLock()\` from the adapter
+- Dispatching synthetic DOM keyboard/mouse events for the gamepad
+- Tracking game data or generated WASM in Git
+- Marking unreached behavior as passed because a hook looks plausible
+
+## Commands
+
+\`\`\`bash
+npm test
+npm start
+# http://127.0.0.1:8088/
+WASM_GAME_FRAMEWORK_ROOT=/path/to/wasm-game-framework npm run build:image
+\`\`\`
+
+## Acceptance
+
+Follow section 11 of the adapter runbook. At minimum record evidence for:
+
+1. missing-data setup vs ready launcher
+2. second load from the browser cache
+3. honest menu → loading → first controllable frame
+4. declared cursor policy, including after resize
+5. capture / Escape release / Resume (if pointer lock is on)
+6. a real save or config surviving hard refresh (if persistence is on)
+7. \`npm test\` still passing
+8. no forbidden downstream web files
+
+Compiling, linking, or reaching a menu is not a finished adapter.
+
+Created by \`create-wasm-game\` for \`${options.id}\`.
+`;
+}
+
 function vendorCopies(frameworkRoot) {
   const copies = [];
   function walk(relative) {
@@ -472,6 +621,8 @@ function vendorCopies(frameworkRoot) {
     });
   }
   walk('package.json');
+  walk('ADAPTER_RUNBOOK.md');
+  walk('SERVER_RUNBOOK.md');
   walk('dist');
   walk('server');
   walk(path.join('scripts', 'check-game-package.js'));
@@ -490,6 +641,7 @@ function generateProject(input) {
     'package.json': packageJson(options, lock),
     'framework-lock.json': `${JSON.stringify(lock, null, 2)}\n`,
     'README.md': readme(options, lock),
+    'RUNBOOK.md': aiRunbook(options, lock),
     '.gitignore': gitignore(),
     'Dockerfile': dockerfile(lock),
     'web/wasm-game.json': manifestJson(options),

@@ -216,12 +216,49 @@
     if (progress !== undefined) elements.loadingProgress.value = Math.max(0, Math.min(100, Number(progress) || 0));
   }
 
+  let pendingConsoleText = '';
+  let consoleTextLength = elements.console.textContent.length;
+
+  function flushConsole() {
+    const output = elements.console;
+    const selection = document.getSelection?.();
+    if (selection && !selection.isCollapsed) {
+      for (let index = 0; index < selection.rangeCount; index += 1) {
+        if (selection.getRangeAt(index).intersectsNode(output)) return;
+      }
+    }
+    if (!pendingConsoleText) return;
+    const follow = output.scrollHeight - output.clientHeight - output.scrollTop <= 24;
+    // Preserve text-node identities, and batch short lines to avoid creating
+    // tens of thousands of DOM nodes during verbose engine startup.
+    if (output.lastChild && output.lastChild.length + pendingConsoleText.length <= 4096) {
+      output.lastChild.appendData(pendingConsoleText);
+    } else {
+      output.appendChild(document.createTextNode(pendingConsoleText));
+    }
+    consoleTextLength += pendingConsoleText.length;
+    pendingConsoleText = '';
+    if (consoleTextLength > 80000) {
+      let remove = consoleTextLength - 60000;
+      while (output.firstChild && remove >= output.firstChild.length) {
+        remove -= output.firstChild.length;
+        output.removeChild(output.firstChild);
+      }
+      if (remove > 0 && output.firstChild) output.firstChild.deleteData(0, remove);
+      consoleTextLength = 60000;
+    }
+    if (follow) output.scrollTop = output.scrollHeight;
+  }
+
   function log(value) {
     const line = String(value == null ? '' : value).replace(/\x1b\[[0-9;]*m/g, '');
-    elements.console.textContent += `${line}\n`;
-    if (elements.console.textContent.length > 80000) elements.console.textContent = elements.console.textContent.slice(-60000);
-    elements.console.scrollTop = elements.console.scrollHeight;
+    // While the user copies a selection, retain a bounded tail without
+    // changing its DOM range or forcing the viewport away from it.
+    pendingConsoleText = `${pendingConsoleText}${line}\n`.slice(-60000);
+    flushConsole();
   }
+
+  document.addEventListener('selectionchange', flushConsole);
 
   function context() {
     return Object.freeze({

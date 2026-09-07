@@ -167,7 +167,7 @@ const sharedCss = require('node:fs').readFileSync(require('node:path').join(__di
 const sharedJs = require('node:fs').readFileSync(require('node:path').join(__dirname, '../dist/wasm-game-framework.js'), 'utf8');
 assert.match(sharedCss, /data-shell-host-cursor="visible"[^}]+cursor: default !important/s,
   'cursorless native menus must explicitly restore the browser pointer');
-assert.match(sharedJs, /const menuCursor = normalizeMenuCursor\(config\.menuCursor\)/,
+assert.match(sharedJs, /let menuCursor = normalizeMenuCursor\(config\.menuCursor\)/,
   'menuCursor must be normalized before runtime policy is applied');
 assert.match(sharedJs, /ENGINE_STATES\.LOADING,[\s\S]+ENGINE_STATES\.MENU,[\s\S]+ENGINE_STATES\.PAUSED,[\s\S]+ENGINE_STATES\.DEBRIEF/,
   'the native cursor policy must cover every non-captured runtime UI state');

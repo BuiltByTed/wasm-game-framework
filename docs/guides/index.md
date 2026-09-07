@@ -26,9 +26,10 @@ npm create wasm-game@latest my-game
 ```
 
 That writes `web/wasm-game.json`, `web/game-adapter.js`, an exact pin of
-`{{PACKAGE_NAME}}@{{VERSION}}`, a Docker build, and a package-contract test. It
-does not write `index.html`, launcher CSS, a service worker, or a web
-manifest. Those stay in the framework so every title upgrades together.
+`{{PACKAGE_NAME}}@{{VERSION}}`, a Docker build, a package-contract test, and
+`RUNBOOK.md` for the implementation agent. It does not write `index.html`,
+launcher CSS, a service worker, or a web manifest. Those stay in the
+framework so every title upgrades together.
 
 ## What the framework owns
 

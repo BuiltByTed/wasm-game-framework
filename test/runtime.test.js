@@ -154,9 +154,14 @@ assert.equal(pointerLockRequests, 1, 'the next-frame fallback must not duplicate
 
 shell.setEngineState('loading');
 assert.equal(shell.inputCaptured(), true, 'loading must retain capture while native launch intent is active');
+shell.showLoading();
+assert.equal(shell.runtime.hidden, false, 'the loading overlay must not hide a capture-intent canvas');
+assert.equal(shell.loading.hidden, false, 'capture-intent loading still displays progress');
+assert.equal(shell.inputCaptured(), true);
 captureIntent = false;
-shell.setEngineState('loading');
+shell.showLoading();
 assert.equal(shell.inputCaptured(), false, 'cancelled loading intent must release capture');
+assert.equal(shell.runtime.hidden, true, 'ordinary boot/cancelled loading still hides the runtime');
 assert.equal(documentTarget.documentElement.dataset.shellHostCursor, 'hidden',
   'default native menu loading keeps the host pointer hidden after capture release');
 
@@ -360,6 +365,27 @@ assert.equal(browserCursorShell.engineState(), 'menu');
 assert.equal(documentTarget.documentElement.dataset.shellHostCursor, 'visible',
   'capture loss restores the browser pointer when the native runtime opens a cursorless menu');
 
+assert.equal(browserCursorShell.setMenuCursor('native'), 'native');
+assert.equal(browserCursorShell.config.menuCursor, 'native');
+assert.equal(documentTarget.documentElement.dataset.shellHostCursor, 'hidden');
+browserCursorShell.setMenuCursor('none');
+const priorMoves = browserPointerMoves.length;
+canvas.dispatch('pointermove', { clientX: 515, clientY: 355 });
+assert.equal(browserPointerMoves.length, priorMoves, 'dynamic none policy suppresses menu movement');
+browserCursorShell.setMenuCursor('browser');
+assert.equal(documentTarget.documentElement.dataset.shellHostCursor, 'visible');
+canvas.dispatch('pointermove', { clientX: 515, clientY: 355 });
+assert.equal(browserPointerMoves.length, priorMoves + 1, 'dynamic browser policy restores menu movement');
+assert.throws(() => browserCursorShell.setMenuCursor('crosshair'), /menuCursor/);
+assert.equal(browserCursorShell.config.menuCursor, 'browser', 'invalid policy does not mutate the current mode');
+nativeState = 'gameplay';
+browserCursorShell.setEngineState('gameplay');
+canvas.dispatch('pointerdown', { clientX: 400, clientY: 300, button: 0 });
+browserCursorShell.setMenuCursor('browser');
+assert.equal(documentTarget.documentElement.dataset.shellHostCursor, 'hidden', 'capture still hides a dynamically selected browser cursor');
+documentTarget.pointerLockElement = null;
+documentTarget.dispatch('pointerlockchange');
+assert.equal(documentTarget.documentElement.dataset.shellHostCursor, 'visible');
 browserCursorShell.destroy();
 
 nativeState = 'menu';
@@ -409,4 +435,86 @@ assert.equal(noMenuCursorShell.engineState(), 'menu');
 assert.equal(documentTarget.documentElement.dataset.shellHostCursor, 'hidden');
 
 noMenuCursorShell.destroy();
-console.log('runtime state, cursor policy, capture intent, release, and fullscreen resize tests passed');
+
+async function testPendingCapture() {
+  documentTarget.pointerLockElement = null;
+  const asyncShell = framework.configure({
+    launcher: node(), card: node(), loading: node(), runtime: node(), canvas,
+    desktopNotice: false, pointerLock: true, engineState: 'menu'
+  });
+  asyncShell.setEngineState('gameplay');
+  const requests = [];
+  canvas.requestPointerLock = () => new Promise((resolve, reject) => requests.push({ resolve, reject }));
+  canvas.dispatch('pointerdown', { clientX: 400, clientY: 300, button: 0, pointerId: 40 });
+  canvas.dispatch('pointerup', { clientX: 400, clientY: 300, button: 0, pointerId: 40 });
+  asyncShell.setEngineState('gameplay', { capture: true });
+  flushFrame();
+  assert.equal(requests.length, 1,
+    'down, up, native-state publication and next-frame fallback must share one pending browser request');
+  assert.equal(asyncShell.inputCaptured(), false, 'a pending request is not capture');
+  assert.equal(documentTarget.documentElement.dataset.shellCaptureStatus, 'pending');
+  assert.deepEqual(JSON.parse(documentTarget.documentElement.dataset.shellCaptureContext), {
+    event: 'pointerdown', trusted: false, connected: false, sameDocument: false,
+    visibility: null, focused: null, activation: null
+  });
+  documentTarget.dispatch('pointerlockchange');
+  assert.equal(asyncShell.requestInputCapture(), false);
+  assert.equal(requests.length, 1, 'a false lock-change event must not clear a pending Promise');
+  requests[0].reject(new Error('WrongDocumentError'));
+  await Promise.resolve();
+  assert.equal(documentTarget.documentElement.dataset.shellCaptureStatus, 'denied');
+  assert.equal(documentTarget.documentElement.dataset.shellCaptureError, 'Error: WrongDocumentError');
+  documentTarget.dispatch('pointerlockerror');
+  assert.equal(documentTarget.documentElement.dataset.shellCaptureError, 'Error: WrongDocumentError',
+    'the later error event preserves the Promise rejection detail');
+  assert.equal(asyncShell.requestInputCapture(), true, 'a rejected request must allow another interaction');
+  assert.equal(requests.length, 2);
+  documentTarget.pointerLockElement = canvas;
+  documentTarget.dispatch('pointerlockchange');
+  assert.equal(asyncShell.inputCaptured(), true);
+  assert.equal(documentTarget.documentElement.dataset.shellCaptureStatus, 'captured');
+  documentTarget.exitPointerLock();
+  assert.equal(asyncShell.requestInputCapture(), true, 'real capture loss permits a new request');
+  assert.equal(requests.length, 3);
+  requests[1].resolve();
+  await Promise.resolve();
+  assert.equal(documentTarget.documentElement.dataset.shellCaptureStatus, 'pending', 'stale settlement cannot overwrite a newer diagnostic');
+  asyncShell.requestInputCapture();
+  assert.equal(requests.length, 3, 'late settlement of the old request cannot clear a newer request');
+  requests[2].reject(new Error('NotAllowedError'));
+  await Promise.resolve();
+
+  let legacyRequests = 0;
+  canvas.requestPointerLock = () => { legacyRequests += 1; };
+  assert.equal(asyncShell.requestInputCapture(), true);
+  assert.equal(asyncShell.requestInputCapture(), false);
+  assert.equal(legacyRequests, 1, 'legacy undefined-return requests also remain pending');
+  documentTarget.dispatch('pointerlockerror');
+  assert.equal(asyncShell.requestInputCapture(), true, 'legacy error events permit retry');
+  documentTarget.pointerLockElement = canvas;
+  documentTarget.dispatch('pointerlockchange');
+  documentTarget.exitPointerLock();
+  assert.equal(asyncShell.requestInputCapture(), true, 'legacy success and release permit retry');
+  documentTarget.dispatch('pointerlockerror');
+
+  let throws = 0;
+  canvas.requestPointerLock = () => { throws += 1; throw new Error('NotAllowedError'); };
+  assert.equal(asyncShell.requestInputCapture(), false);
+  assert.equal(asyncShell.requestInputCapture(), false);
+  assert.equal(throws, 2, 'synchronous rejection must not leave a pending request');
+  assert.equal(documentTarget.documentElement.dataset.shellCaptureError, 'Error: NotAllowedError');
+  canvas.requestPointerLock = undefined;
+  assert.equal(asyncShell.requestInputCapture(), false, 'missing browser support is not a request');
+  canvas.requestPointerLock = () => Promise.resolve();
+  assert.equal(asyncShell.requestInputCapture(), true);
+  await Promise.resolve();
+  assert.equal(asyncShell.requestInputCapture(), true, 'settled Promise must not leave a permanent pending request');
+  asyncShell.destroy();
+  await Promise.resolve();
+  assert.equal((documentTarget.listeners.get('pointerlockerror') || []).length, 0,
+    'destroy removes the legacy request error listener');
+}
+
+testPendingCapture().then(() => {
+  console.log('runtime state, cursor policy, capture intent, async request coalescing/retry, release, and fullscreen resize tests passed');
+}).catch(error => { console.error(error); process.exitCode = 1; });

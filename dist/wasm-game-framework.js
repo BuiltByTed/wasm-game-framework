@@ -2343,6 +2343,7 @@
     let resizeFrame = 0;
     let fullscreenResizeFrame = 0;
     let captureFrame = 0;
+    let pendingCapture = null;
     let trustedIntentEvent = null;
     const pointerIntentGestures = new Map();
     let canvasObserver = null;
@@ -2350,7 +2351,7 @@
     let preferences = null;
     let controller = null;
     let controllerSelectionChanged = null;
-    const menuCursor = normalizeMenuCursor(config.menuCursor);
+    let menuCursor = normalizeMenuCursor(config.menuCursor);
     if (!menuCursor) throw new Error('menuCursor must be native, browser, or none.');
     const menuCursorStates = new Set([
       ENGINE_STATES.LOADING,
@@ -2383,6 +2384,9 @@
 
     function publishInputCapture() {
       const captured = inputCaptured();
+      // Promise-based requests settle independently of lock-change events.
+      // A native engine can emit an uncaptured change while one is pending.
+      if (captured || !pendingCapture?.promise) pendingCapture = null;
       if (!captured && typeof config.readEngineState === 'function') {
         const reported = String(config.readEngineState() || '').toLowerCase();
         if (Object.values(ENGINE_STATES).includes(reported) && reported !== engineState) {
@@ -2390,6 +2394,7 @@
         }
       }
       html.dataset.shellInputCaptured = String(captured);
+      html.dataset.shellCaptureStatus = captured ? 'captured' : pendingCapture ? 'pending' : 'released';
       updateHostCursor(captured);
       if (typeof config.onInputCaptureChange === 'function') {
         config.onInputCaptureChange(captured);
@@ -2405,14 +2410,52 @@
 
     function requestInputCapture(event, requestOptions) {
       const trustedIntent = requestOptions?.trustedIntent === true && trustedIntentEvent === event;
-      if (!canvas || config.pointerLock !== true || (!trustedIntent && !captureDesired()) || inputCaptured()) return false;
+      if (!canvas || config.pointerLock !== true || (!trustedIntent && !captureDesired()) || inputCaptured() || pendingCapture) return false;
       if (typeof config.shouldCapture === 'function' && !config.shouldCapture(event, canvas)) return false;
+      if (typeof canvas.requestPointerLock !== 'function') return false;
+      // Down/up, native-state publication and the rAF fallback can all arrive
+      // before the browser completes the same asynchronous capture request.
+      const request = { promise: false };
+      pendingCapture = request;
+      html.dataset.shellCaptureAttempts = String((Number(html.dataset.shellCaptureAttempts) || 0) + 1);
+      html.dataset.shellCaptureStatus = 'pending';
+      html.dataset.shellCaptureError = '';
+      html.dataset.shellCaptureContext = JSON.stringify({
+        event: event?.type || null,
+        trusted: event?.isTrusted === true,
+        connected: canvas.isConnected === true,
+        sameDocument: canvas.ownerDocument === document,
+        visibility: document.visibilityState || null,
+        focused: typeof document.hasFocus === 'function' ? document.hasFocus() : null,
+        activation: typeof navigator !== 'undefined' ? navigator.userActivation?.isActive ?? null : null
+      });
+      const settled = error => {
+        if (pendingCapture !== request) return;
+        pendingCapture = null;
+        html.dataset.shellCaptureStatus = inputCaptured() ? 'captured' : error ? 'denied' : 'uncaptured';
+        if (error) html.dataset.shellCaptureError = `${error.name || 'Error'}: ${error.message || ''}`.slice(0, 256);
+      };
       try {
-        const pending = canvas.requestPointerLock?.();
-        if (pending && typeof pending.catch === 'function') pending.catch(() => {});
-        return Boolean(pending !== undefined || canvas.requestPointerLock);
-      } catch (_) {
+        const pending = canvas.requestPointerLock();
+        request.promise = Boolean(pending && typeof pending.then === 'function');
+        if (request.promise) pending.then(() => settled(), error => settled(error));
+        return true;
+      } catch (error) {
+        settled(error);
         return false;
+      }
+    }
+
+    function captureRequestFailed() {
+      // Older browsers return undefined and signal completion only by event.
+      // Promise requests use their own token, so a stale error cannot clear
+      // a newer request before its rejection callback runs.
+      if (!pendingCapture?.promise) {
+        pendingCapture = null;
+        html.dataset.shellCaptureStatus = 'denied';
+        // The event may arrive after the Promise rejection. Preserve its
+        // useful DOMException message instead of replacing it with a label.
+        if (!html.dataset.shellCaptureError) html.dataset.shellCaptureError = 'PointerLockError';
       }
     }
 
@@ -2635,6 +2678,7 @@
     window.visualViewport?.addEventListener('resize', scheduleResize, { passive: true });
     document.addEventListener('fullscreenchange', scheduleFullscreenResize);
     document.addEventListener('pointerlockchange', publishInputCapture);
+    document.addEventListener('pointerlockerror', captureRequestFailed);
     document.addEventListener('keydown', protectCapturedKey, true);
     if (canvas) {
       canvas.addEventListener('pointerdown', requestInputCapture);
@@ -2761,7 +2805,7 @@
         displayMode: normalizeDisplayMode(config.displayMode),
         fit: config.fit === 'fill' ? 'fill' : 'contain',
         aspect: positive(config.aspect, 4 / 3),
-        menuCursor
+        get menuCursor() { return menuCursor; }
       }),
       launcher,
       loading,
@@ -2773,6 +2817,14 @@
       pointerPosition,
       engineState: () => engineState,
       setEngineState,
+      setMenuCursor(mode) {
+        const next = normalizeMenuCursor(mode);
+        if (!next) throw new Error('menuCursor must be native, browser, or none.');
+        menuCursor = next;
+        clearPointerIntentGestures();
+        updateHostCursor(inputCaptured());
+        return menuCursor;
+      },
       preferences,
       controller,
       resize,
@@ -2805,7 +2857,9 @@
         setEngineState(ENGINE_STATES.LOADING);
         if (launcher) launcher.hidden = true;
         if (loading) loading.hidden = false;
-        if (runtime) runtime.hidden = true;
+        // The loading panel already overlays the runtime. Hiding a canvas
+        // that is acquiring/retaining capture invalidates its browser target.
+        if (runtime) runtime.hidden = !captureDesired();
       },
       showRuntime() {
         if (launcher) launcher.hidden = true;
@@ -2818,6 +2872,8 @@
         window.visualViewport?.removeEventListener('resize', scheduleResize);
         document.removeEventListener('fullscreenchange', scheduleFullscreenResize);
         document.removeEventListener('pointerlockchange', publishInputCapture);
+        document.removeEventListener('pointerlockerror', captureRequestFailed);
+        pendingCapture = null;
         document.removeEventListener('keydown', protectCapturedKey, true);
         controller?.stop();
         if (controllerSelectionChanged) controllerSelect?.removeEventListener('change', controllerSelectionChanged);
